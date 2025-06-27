@@ -6,13 +6,19 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Square, Trash2, Loader2 } from "lucide-react"
 
+interface MapArea {
+  type: string
+  points: { x: number; y: number }[]
+  area: string
+  id: number
+}
+
 // Simplified map using OpenLayers or fallback to embedded Google Maps
-export default function SimpleSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area: any) => void }) {
+export default function SimpleSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area: MapArea) => void }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [drawingMode, setDrawingMode] = useState<"none" | "polygon" | "marker">("none")
-  const [drawnAreas, setDrawnAreas] = useState<any[]>([])
 
   useEffect(() => {
     // Try to load a simple embedded map solution
@@ -188,7 +194,6 @@ export default function SimpleSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (are
       if (points.length > 2) {
         const newPolygons = [...polygons, points]
         setPolygons(newPolygons)
-        setDrawnAreas(newPolygons)
 
         // Calculate area
         const area = (points.length * 0.1).toFixed(1)
@@ -207,7 +212,6 @@ export default function SimpleSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (are
     const clearAll = () => {
       setPoints([])
       setPolygons([])
-      setDrawnAreas([])
       setDrawingMode("none")
     }
 
@@ -265,9 +269,9 @@ export default function SimpleSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (are
         <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
           <strong>How to use:</strong>
           <ul className="list-disc list-inside mt-1 space-y-1">
-            <li>Click "Draw Survey Area" to start defining your survey boundary</li>
+            <li>Click {'"Draw Survey Area"'} to start defining your survey boundary</li>
             <li>Click multiple points on the map to create the area outline</li>
-            <li>Click "Finish Area" when you have 3+ points to complete the polygon</li>
+            <li>Click {'"Finish Area"'} when you have 3+ points to complete the polygon</li>
             <li>Blue dashed lines show the automatic flight path generation</li>
             <li>Each area shows estimated acreage and gets a unique ID</li>
           </ul>

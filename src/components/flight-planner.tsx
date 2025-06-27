@@ -25,6 +25,27 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 
+interface SurveyArea {
+  area: string
+  points?: { x: number; y: number }[]
+  coordinates?: { lat: number; lng: number }[]
+}
+
+interface DroneModel {
+  name: string
+  maxAlt: number
+  flightTime: number
+  batteryLife: string
+}
+
+interface SavedPlot {
+  id: number
+  name: string
+  plantType: string
+  area: string
+  lastFlown: string
+}
+
 // Simplified version of your flight planner for web integration
 export default function FlightPlannerInterface() {
   const [activeTab, setActiveTab] = useState("planner")
@@ -35,14 +56,14 @@ export default function FlightPlannerInterface() {
   const [flightStatus, setFlightStatus] = useState("ready") // ready, planning, flying, completed
   const [weatherCondition, setWeatherCondition] = useState("excellent")
   const [plantCount, setPlantCount] = useState(0)
-  const [surveyArea, setSurveyArea] = useState<any>(null)
-  const [savedPlots] = useState([
+  const [surveyArea, setSurveyArea] = useState<SurveyArea | null>(null)
+  const [savedPlots] = useState<SavedPlot[]>([
     { id: 1, name: "North Field A", plantType: "Tomatoes", area: "2.5 acres", lastFlown: "2024-01-15" },
     { id: 2, name: "Greenhouse Block B", plantType: "Peppers", area: "1.8 acres", lastFlown: "2024-01-12" },
     { id: 3, name: "South Nursery", plantType: "Herbs", area: "3.2 acres", lastFlown: "2024-01-10" },
   ])
 
-  const droneModels = {
+  const droneModels: Record<string, DroneModel> = {
     "dji-mini-3": { name: "DJI Mini 3", maxAlt: 120, flightTime: 38, batteryLife: "85%" },
     "dji-air-2s": { name: "DJI Air 2S", maxAlt: 120, flightTime: 31, batteryLife: "92%" },
     "dji-mavic-3": { name: "DJI Mavic 3", maxAlt: 120, flightTime: 46, batteryLife: "78%" },
@@ -72,7 +93,7 @@ export default function FlightPlannerInterface() {
     setFlightStatus("flying")
 
     // Calculate realistic flight parameters
-    const currentDroneSpecs = droneModels[selectedDrone as keyof typeof droneModels]
+    const currentDroneSpecs = droneModels[selectedDrone]
     const imageFootprintWidth = (0.75 * 4000) / 100 // Simplified GSD calculation
     const imageFootprintHeight = (0.75 * 3000) / 100
     const spacingX = imageFootprintWidth * (1 - overlap / 100)
@@ -121,7 +142,7 @@ export default function FlightPlannerInterface() {
   const checkWeatherConditions = () => {
     const conditions = ["excellent", "good", "fair", "poor"]
     const scores = [95, 78, 55, 25]
-    const warnings = {
+    const warnings: Record<string, string[]> = {
       excellent: [],
       good: ["Light wind detected"],
       fair: ["Moderate wind - exercise caution", "Overcast conditions"],
@@ -133,7 +154,7 @@ export default function FlightPlannerInterface() {
 
     const conditionIndex = conditions.indexOf(randomCondition)
     const score = scores[conditionIndex]
-    const conditionWarnings = warnings[randomCondition as keyof typeof warnings]
+    const conditionWarnings = warnings[randomCondition] || []
 
     alert(
       `Weather Check Complete!\n\nCondition: ${randomCondition.toUpperCase()}\nScore: ${score}/100\n${conditionWarnings.length > 0 ? "\nWarnings:\n• " + conditionWarnings.join("\n• ") : "\n✅ Perfect flying conditions!"}`,
@@ -261,15 +282,11 @@ export default function FlightPlannerInterface() {
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div className="bg-gray-50 p-2 rounded">
                       <div className="font-medium">Remaining Flight Time</div>
-                      <div className="text-gray-600">
-                        {droneModels[selectedDrone as keyof typeof droneModels].flightTime} min
-                      </div>
+                      <div className="text-gray-600">{droneModels[selectedDrone].flightTime} min</div>
                     </div>
                     <div className="bg-gray-50 p-2 rounded">
                       <div className="font-medium">Battery</div>
-                      <div className="text-green-600">
-                        {droneModels[selectedDrone as keyof typeof droneModels].batteryLife}
-                      </div>
+                      <div className="text-green-600">{droneModels[selectedDrone].batteryLife}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -322,7 +339,7 @@ export default function FlightPlannerInterface() {
                   <CardTitle>Flight Control</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button onClick={checkWeatherConditions} variant="outline" className="w-full mb-2">
+                  <Button onClick={checkWeatherConditions} variant="outline" className="w-full mb-2 bg-transparent">
                     <CloudSun className="w-4 h-4 mr-2" />
                     Check Weather Conditions
                   </Button>

@@ -4,23 +4,36 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Square, Trash2, MapPin, Layers, ZoomIn, ZoomOut } from "lucide-react"
 
-export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area: any) => void }) {
+interface MapArea {
+  id: number
+  points: { x: number; y: number; lat: number; lng: number }[]
+  area: string
+  coordinates: { lat: number; lng: number }[]
+}
+
+interface TileLayer {
+  satellite: string
+  hybrid: string
+  terrain: string
+}
+
+export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area: MapArea) => void }) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(16)
   const [center, setCenter] = useState({ lat: 34.0522, lng: -118.2437 }) // Los Angeles area
   const [mapLayer, setMapLayer] = useState<"satellite" | "hybrid" | "terrain">("satellite")
   const [drawingMode, setDrawingMode] = useState<"none" | "polygon">("none")
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number; lat: number; lng: number }[]>([])
-  const [completedPolygons, setCompletedPolygons] = useState<any[]>([])
-
-  // Tile layer URLs for different map types
-  const tileLayers = {
-    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    hybrid: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", // Google Hybrid
-    terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-  }
+  const [completedPolygons, setCompletedPolygons] = useState<MapArea[]>([])
 
   useEffect(() => {
+    // Tile layer URLs for different map types - moved inside useEffect to avoid dependency warning
+    const tileLayers: TileLayer = {
+      satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      hybrid: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", // Google Hybrid
+      terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    }
+
     if (!mapContainerRef.current) return
 
     // Create the map container with satellite tiles
@@ -114,7 +127,7 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
         if (polygon.points.length > 2) {
           ctx.beginPath()
           ctx.moveTo(polygon.points[0].x, polygon.points[0].y)
-          polygon.points.forEach((point: any) => ctx.lineTo(point.x, point.y))
+          polygon.points.forEach((point) => ctx.lineTo(point.x, point.y))
           ctx.closePath()
           ctx.strokeStyle = "#15803d"
           ctx.lineWidth = 3
@@ -123,8 +136,8 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
           ctx.fill()
 
           // Add label
-          const centerX = polygon.points.reduce((sum: number, p: any) => sum + p.x, 0) / polygon.points.length
-          const centerY = polygon.points.reduce((sum: number, p: any) => sum + p.y, 0) / polygon.points.length
+          const centerX = polygon.points.reduce((sum, p) => sum + p.x, 0) / polygon.points.length
+          const centerY = polygon.points.reduce((sum, p) => sum + p.y, 0) / polygon.points.length
           ctx.fillStyle = "#15803d"
           ctx.font = "bold 12px sans-serif"
           ctx.fillText(`Survey ${index + 1}`, centerX - 30, centerY)
@@ -136,10 +149,10 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
       // Draw flight paths within completed polygons
       completedPolygons.forEach((polygon) => {
         if (polygon.points.length > 2) {
-          const minX = Math.min(...polygon.points.map((p: any) => p.x))
-          const maxX = Math.max(...polygon.points.map((p: any) => p.x))
-          const minY = Math.min(...polygon.points.map((p: any) => p.y))
-          const maxY = Math.max(...polygon.points.map((p: any) => p.y))
+          const minX = Math.min(...polygon.points.map((p) => p.x))
+          const maxX = Math.max(...polygon.points.map((p) => p.x))
+          const minY = Math.min(...polygon.points.map((p) => p.y))
+          const maxY = Math.max(...polygon.points.map((p) => p.y))
 
           // Draw lawnmower pattern
           ctx.strokeStyle = "#06B6D4"
@@ -167,8 +180,8 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
           ctx.setLineDash([])
 
           // Add flight path label
-          const centerX = polygon.points.reduce((sum: number, p: any) => sum + p.x, 0) / polygon.points.length
-          const centerY = polygon.points.reduce((sum: number, p: any) => sum + p.y, 0) / polygon.points.length
+          const centerX = polygon.points.reduce((sum, p) => sum + p.x, 0) / polygon.points.length
+          const centerY = polygon.points.reduce((sum, p) => sum + p.y, 0) / polygon.points.length
           ctx.fillStyle = "#06B6D4"
           ctx.font = "10px sans-serif"
           ctx.fillText("Flight Path", centerX - 25, centerY + 30)
@@ -284,7 +297,7 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
       // Calculate approximate area (simplified)
       const area = (polygonPoints.length * 0.15).toFixed(1) + " acres"
 
-      const newPolygon = {
+      const newPolygon: MapArea = {
         id: Date.now(),
         points: polygonPoints,
         area: area,
@@ -308,13 +321,13 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
   }
 
   const moveToLocation = (location: string) => {
-    const locations = {
+    const locations: Record<string, { lat: number; lng: number }> = {
       "Los Angeles": { lat: 34.0522, lng: -118.2437 },
       "Central Valley": { lat: 36.7783, lng: -119.4179 },
       "Salinas Valley": { lat: 36.6777, lng: -121.6555 },
       "Napa Valley": { lat: 38.5025, lng: -122.2654 },
     }
-    const coords = locations[location as keyof typeof locations]
+    const coords = locations[location]
     if (coords) {
       setCenter(coords)
       setZoom(16)

@@ -6,13 +6,24 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { MapPin, Square, Trash2 } from "lucide-react"
 
+interface MapArea {
+  type: string
+  points: { x: number; y: number }[]
+  area: string
+}
+
+interface Marker {
+  x: number
+  y: number
+  type: string
+}
+
 // Simple interactive map component using HTML5 Canvas
-export default function InteractiveMap({ onAreaDrawn }: { onAreaDrawn?: (area: any) => void }) {
+export default function InteractiveMap({ onAreaDrawn }: { onAreaDrawn?: (area: MapArea) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [isDrawing, setIsDrawing] = useState(false)
   const [drawingMode, setDrawingMode] = useState<"none" | "polygon" | "marker">("none")
   const [points, setPoints] = useState<{ x: number; y: number }[]>([])
-  const [markers, setMarkers] = useState<{ x: number; y: number; type: string }[]>([])
+  const [markers, setMarkers] = useState<Marker[]>([])
   const [drawnPolygons, setDrawnPolygons] = useState<{ x: number; y: number }[][]>([])
 
   useEffect(() => {
@@ -224,9 +235,9 @@ export default function InteractiveMap({ onAreaDrawn }: { onAreaDrawn?: (area: a
       <div className="text-xs text-gray-500">
         <strong>Instructions:</strong>
         <ul className="list-disc list-inside mt-1 space-y-1">
-          <li>Click "Draw Area" then click points to create survey boundary</li>
+          <li>Click {'"Draw Area"'} then click points to create survey boundary</li>
           <li>Double-click to complete the polygon</li>
-          <li>Use "Add Marker" to set drone start/landing points</li>
+          <li>Use {'"Add Marker"'} to set drone start/landing points</li>
           <li>Flight paths are automatically generated for completed areas</li>
         </ul>
       </div>

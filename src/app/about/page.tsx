@@ -35,7 +35,7 @@ export default function AboutPage() {
           </nav>
           <div className="flex items-center space-x-3">
             <Link href="/dashboard">
-              <Button variant="outline" className="border-green-700 text-green-700 hover:bg-green-50">
+              <Button variant="outline" className="border-green-700 text-green-700 hover:bg-green-50 bg-transparent">
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
@@ -54,9 +54,9 @@ export default function AboutPage() {
               Revolutionizing Nursery Operations Through Technology
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              We're on a mission to transform the nursery industry with cutting-edge drone technology and data
-              analytics, making precision plant counting and inventory management accessible to nursery operators
-              everywhere.
+              {
+                "We're on a mission to transform the nursery industry with cutting-edge drone technology and data analytics, making precision plant counting and inventory management accessible to nursery operators everywhere."
+              }
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/dashboard">
@@ -67,7 +67,11 @@ export default function AboutPage() {
                 </Button>
               </Link>
               <Link href="/#contact">
-                <Button size="lg" variant="outline" className="border-green-700 text-green-700 hover:bg-green-50">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-green-700 text-green-700 hover:bg-green-50 bg-transparent"
+                >
                   Get In Touch
                 </Button>
               </Link>
@@ -145,8 +149,10 @@ export default function AboutPage() {
               <CardContent>
                 <CardDescription className="text-base leading-relaxed">
                   To revolutionize nursery operations by providing accessible, accurate, and actionable data through
-                  advanced drone technology and AI-powered analytics. We're committed to helping nursery operators
-                  optimize their inventory management, reduce operational costs, and increase profitability.
+                  advanced drone technology and AI-powered analytics.{" "}
+                  {
+                    "We're committed to helping nursery operators optimize their inventory management, reduce operational costs, and increase profitability."
+                  }
                 </CardDescription>
               </CardContent>
             </Card>
@@ -215,7 +221,7 @@ export default function AboutPage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  We continuously push the boundaries of what's possible with drone technology and AI.
+                  {"We continuously push the boundaries of what's possible with drone technology and AI."}
                 </CardDescription>
               </CardContent>
             </Card>
@@ -242,7 +248,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold text-white mb-6">Ready to Transform Your Nursery?</h2>
           <p className="text-xl text-green-100 mb-8 max-w-2xl mx-auto">
-            Join Porter's vision and hundreds of nursery operators who trust PLNT for their aerial surveying needs
+            {"Join Porter's vision and hundreds of nursery operators who trust PLNT for their aerial surveying needs"}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/dashboard">
