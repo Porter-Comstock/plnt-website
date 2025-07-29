@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import RealSatelliteMap from '@/components/enhanced-satellite-map'
+import { RealSatelliteMap } from '@/components/dynamic-map-wrapper'
 import Link from 'next/link'
 import { ArrowLeft, Save, MapPin } from 'lucide-react'
 

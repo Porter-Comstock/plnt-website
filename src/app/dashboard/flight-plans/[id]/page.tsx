@@ -20,7 +20,7 @@ import {
   Settings,
   FileDown,
 } from 'lucide-react'
-import FlightPathPreviewMap from '@/components/flight-path-preview-map'
+import { FlightPathPreviewMap } from '@/components/dynamic-map-wrapper'
 
 // Using Plane icon as Drone
 const Drone = Plane

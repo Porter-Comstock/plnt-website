@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import EnhancedSatelliteMap from '@/components/enhanced-satellite-map'
+import { EnhancedSatelliteMap } from '@/components/dynamic-map-wrapper'
 import Link from 'next/link'
 import { ArrowLeft, Save, Plane, Calendar, MapPin } from 'lucide-react'
 
