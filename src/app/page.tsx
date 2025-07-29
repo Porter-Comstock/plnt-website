@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  DrillIcon as Drone,
+  Plane,
   BarChart3,
   MapPin,
   Clock,
@@ -19,6 +19,9 @@ import {
   ArrowRight,
 } from "lucide-react"
 
+// Using Plane icon as Drone (lucide-react doesn't have a drone icon)
+const Drone = Plane
+
 export default function PLNTHomepage() {
   return (
     <div className="min-h-screen bg-white">
@@ -26,7 +29,7 @@ export default function PLNTHomepage() {
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Image src="/images/plnt-logo.svg" alt="PLNT Logo" width={120} height={40} className="h-10 w-auto" />
+            <Image src="/images/plnt-logo.svg" alt="PLNT Logo" width={150} height={50} className="h-12 w-auto" priority />
           </div>
           <nav className="hidden md:flex space-x-8">
             <Link href="#home" className="text-gray-700 hover:text-green-700 font-medium">
@@ -52,7 +55,9 @@ export default function PLNTHomepage() {
                 Dashboard
               </Button>
             </Link>
-            <Button className="bg-green-700 hover:bg-green-800">Schedule Demo</Button>
+            <Link href="#contact">
+              <Button className="bg-green-700 hover:bg-green-800 text-white">Schedule Demo</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -72,16 +77,18 @@ export default function PLNTHomepage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/dashboard">
-                  <Button size="lg" className="bg-green-700 hover:bg-green-800">
+                  <Button size="lg" className="bg-green-700 hover:bg-green-800 text-white">
                     <Drone className="w-5 h-5 mr-2" />
                     Launch Flight Planner
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
-                <Button size="lg" variant="outline" className="border-green-700 text-green-700 hover:bg-green-50">
-                  <BarChart3 className="w-5 h-5 mr-2" />
-                  View Demo
-                </Button>
+                <Link href="/dashboard">
+                  <Button size="lg" variant="outline" className="border-green-700 text-green-700 hover:bg-green-50">
+                    <BarChart3 className="w-5 h-5 mr-2" />
+                    View Demo
+                  </Button>
+                </Link>
               </div>
             </div>
             <div className="relative">
@@ -122,7 +129,7 @@ export default function PLNTHomepage() {
                 <h3 className="text-xl font-semibold mb-2">Plan Flight</h3>
                 <p className="text-gray-600 mb-4">Design survey areas and configure drone parameters</p>
                 <Link href="/dashboard">
-                  <Button className="w-full bg-green-700 hover:bg-green-800">Start Planning</Button>
+                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white">Start Planning</Button>
                 </Link>
               </CardContent>
             </Card>
@@ -133,7 +140,7 @@ export default function PLNTHomepage() {
                   <BarChart3 className="w-8 h-8 text-blue-600" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">View Analytics</h3>
-                <p className="text-gray-600 mb-4">Track plant growth and survey performance</p>
+                <p className="text-gray-600 mb-4">Track plant count trends and survey performance</p>
                 <Link href="/dashboard">
                   <Button variant="outline" className="w-full border-blue-600 text-blue-600 hover:bg-blue-50">
                     View Data
@@ -189,7 +196,7 @@ export default function PLNTHomepage() {
                 <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <BarChart3 className="w-8 h-8 text-green-700" />
                 </div>
-                <CardTitle className="text-green-800">Growth Analytics</CardTitle>
+                <CardTitle className="text-green-800">Plant Count Trends</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
@@ -367,13 +374,15 @@ export default function PLNTHomepage() {
                 Try Flight Planner Free
               </Button>
             </Link>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white text-white bg-transparent hover:bg-green-700 hover:border-green-700"
-            >
-              Schedule Demo Call
-            </Button>
+            <Link href="#contact">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white text-white bg-transparent hover:bg-green-700 hover:border-green-700"
+              >
+                Schedule Demo Call
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -421,7 +430,7 @@ export default function PLNTHomepage() {
                       rows={4}
                     />
                   </div>
-                  <Button className="w-full bg-green-700 hover:bg-green-800">Schedule Demo</Button>
+                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white">Schedule Demo</Button>
                 </form>
               </Card>
             </div>
@@ -475,7 +484,7 @@ export default function PLNTHomepage() {
                   Experience our flight planning interface with interactive demos and sample data.
                 </p>
                 <Link href="/dashboard">
-                  <Button className="w-full bg-green-700 hover:bg-green-800">
+                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
                     <Drone className="w-4 h-4 mr-2" />
                     Launch Dashboard
                   </Button>
@@ -492,13 +501,15 @@ export default function PLNTHomepage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-3 mb-4">
-                <Image
-                  src="/images/plnt-logo-white.svg"
-                  alt="PLNT Logo"
-                  width={120}
-                  height={40}
-                  className="h-10 w-auto"
-                />
+                <div className="bg-gray-900">
+                  <Image
+                    src="/images/plnt-logo-white.svg"
+                    alt="PLNT Logo"
+                    width={150}
+                    height={50}
+                    className="h-12 w-auto" priority
+                  />
+                </div>
               </div>
               <p className="text-gray-400">
                 Advanced drone technology for precision plant counting and nursery analytics.
@@ -507,46 +518,18 @@ export default function PLNTHomepage() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Services</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Plant Counting
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Growth Analytics
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Flight Planning
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Business Intelligence
-                  </Link>
-                </li>
+                <li>Plant Counting</li>
+                <li>Plant Count Trends</li>
+                <li>Flight Planning</li>
+                <li>Business Intelligence</li>
               </ul>
             </div>
             <div>
               <h4 className="text-lg font-semibold mb-4">Technology</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Drone Integration
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    AI Recognition
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="hover:text-white">
-                    Weather Monitoring
-                  </Link>
-                </li>
+                <li>Drone Integration</li>
+                <li>AI Recognition</li>
+                <li>Weather Monitoring</li>
                 <li>
                   <Link href="/dashboard" className="hover:text-white">
                     Flight Planner
@@ -557,8 +540,8 @@ export default function PLNTHomepage() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>(555) 123-PLNT</li>
-                <li>hello@plnt.tech</li>
+                <li>(310) 890-0846</li>
+                <li>porter@plnt.net</li>
                 <li>Documentation</li>
                 <li>Training Videos</li>
               </ul>

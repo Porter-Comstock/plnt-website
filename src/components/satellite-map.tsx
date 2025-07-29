@@ -164,9 +164,18 @@ export default function SatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area: Map
 
   const finishPolygon = () => {
     if (currentPolygon && leaflet) {
-      // Simplified area calculation to avoid TypeScript issues
-      const latlngs = currentPolygon.getLatLngs()[0]
-      const area = latlngs.length * 100 // Simplified calculation
+      // Calculate area in square meters, then convert to acres
+      const area = (
+        leaflet as typeof import("leaflet") & {
+          GeometryUtil?: { geodesicArea: (latlngs: { lat: number; lng: number }[]) => number }
+        }
+      ).GeometryUtil
+        ? (
+            leaflet as typeof import("leaflet") & {
+              GeometryUtil: { geodesicArea: (latlngs: { lat: number; lng: number }[]) => number }
+            }
+          ).GeometryUtil.geodesicArea(currentPolygon.getLatLngs()[0])
+        : 0
       const acres = (area * 0.000247105).toFixed(2) // Convert m² to acres
 
       // Add popup with area info

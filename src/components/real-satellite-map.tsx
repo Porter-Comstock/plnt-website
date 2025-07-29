@@ -26,14 +26,14 @@ export default function RealSatelliteMap({ onAreaDrawn }: { onAreaDrawn?: (area:
   const [polygonPoints, setPolygonPoints] = useState<{ x: number; y: number; lat: number; lng: number }[]>([])
   const [completedPolygons, setCompletedPolygons] = useState<MapArea[]>([])
 
-  useEffect(() => {
-    // Tile layer URLs for different map types - moved inside useEffect to avoid dependency warning
-    const tileLayers: TileLayer = {
-      satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      hybrid: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", // Google Hybrid
-      terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-    }
+  // Tile layer URLs for different map types
+  const tileLayers: TileLayer = {
+    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    hybrid: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", // Google Hybrid
+    terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+  }
 
+  useEffect(() => {
     if (!mapContainerRef.current) return
 
     // Create the map container with satellite tiles

@@ -1,0 +1,384 @@
+// app/dashboard/flight-plans/page.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/auth-context'
+import { ProtectedRoute } from '@/lib/auth/protected-route'
+import { supabase } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
+import Image from 'next/image'
+import {
+  ArrowLeft,
+  Plane,
+  Calendar,
+  Clock,
+  MapPin,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  Download,
+  MoreVertical,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+interface FlightPlan {
+  id: string
+  name: string
+  plot_id: string | null
+  drone_model: string
+  altitude_m: number
+  speed_ms: number
+  overlap_percent: number
+  waypoints: any
+  estimated_duration_min: number
+  created_at: string
+  scheduled_for: string
+}
+
+interface Plot {
+  id: string
+  name: string
+  area_acres: number
+}
+
+export default function FlightPlansPage() {
+  return (
+    <ProtectedRoute>
+      <FlightPlansContent />
+    </ProtectedRoute>
+  )
+}
+
+function FlightPlansContent() {
+  const { user, isDemo } = useAuth()
+  const router = useRouter()
+  const [flightPlans, setFlightPlans] = useState<FlightPlan[]>([])
+  const [plots, setPlots] = useState<Plot[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed'>('all')
+
+  useEffect(() => {
+    if (isDemo) {
+      // Load demo flight plans
+      setFlightPlans([
+        {
+          id: '1',
+          name: 'Weekly Survey - North Field',
+          plot_id: '1',
+          drone_model: 'DJI Mavic 3',
+          altitude_m: 30,
+          speed_ms: 5,
+          overlap_percent: 80,
+          waypoints: { type: 'LineString', coordinates: [] },
+          estimated_duration_min: 15,
+          created_at: '2024-01-20T10:00:00',
+          scheduled_for: '2024-01-25T09:00:00',
+        },
+        {
+          id: '2',
+          name: 'Growth Check - Greenhouse B',
+          plot_id: '2',
+          drone_model: 'DJI Air 2S',
+          altitude_m: 25,
+          speed_ms: 4,
+          overlap_percent: 75,
+          waypoints: { type: 'LineString', coordinates: [] },
+          estimated_duration_min: 12,
+          created_at: '2024-01-19T14:30:00',
+          scheduled_for: '2024-01-26T10:00:00',
+        },
+        {
+          id: '3',
+          name: 'Monthly Survey - South Nursery',
+          plot_id: '3',
+          drone_model: 'DJI Mavic 3',
+          altitude_m: 35,
+          speed_ms: 5,
+          overlap_percent: 80,
+          waypoints: { type: 'LineString', coordinates: [] },
+          estimated_duration_min: 18,
+          created_at: '2024-01-18T08:00:00',
+          scheduled_for: '2024-01-15T08:00:00',
+        },
+      ])
+      
+      setPlots([
+        { id: '1', name: 'North Field A', area_acres: 2.5 },
+        { id: '2', name: 'Greenhouse Block B', area_acres: 1.8 },
+        { id: '3', name: 'South Nursery', area_acres: 3.2 },
+      ])
+      
+      setLoading(false)
+    } else {
+      fetchData()
+    }
+  }, [isDemo])
+
+  const fetchData = async () => {
+    if (!user) return
+
+    try {
+      // Fetch flight plans
+      const { data: plansData, error: plansError } = await supabase
+        .from('flight_plans')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('scheduled_for', { ascending: false })
+
+      if (plansError) throw plansError
+      setFlightPlans(plansData || [])
+
+      // Fetch plots for reference
+      const { data: plotsData, error: plotsError } = await supabase
+        .from('plots')
+        .select('id, name, area_acres')
+        .eq('user_id', user.id)
+
+      if (plotsError) throw plotsError
+      setPlots(plotsData || [])
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deleteFlight = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this flight plan?')) return
+
+    if (isDemo) {
+      setFlightPlans(flightPlans.filter(fp => fp.id !== id))
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('flight_plans')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user!.id)
+
+      if (error) throw error
+      setFlightPlans(flightPlans.filter(fp => fp.id !== id))
+    } catch (error) {
+      console.error('Error deleting flight plan:', error)
+      alert('Failed to delete flight plan')
+    }
+  }
+
+  const getPlotName = (plotId: string | null) => {
+    if (!plotId) return 'Custom Area'
+    const plot = plots.find(p => p.id === plotId)
+    return plot?.name || 'Unknown Plot'
+  }
+
+  const getPlotArea = (plotId: string | null) => {
+    if (!plotId) return 'N/A'
+    const plot = plots.find(p => p.id === plotId)
+    return plot?.area_acres ? `${plot.area_acres} acres` : 'N/A'
+  }
+
+  const getStatus = (scheduledFor: string) => {
+    const now = new Date()
+    const scheduled = new Date(scheduledFor)
+    return scheduled > now ? 'scheduled' : 'completed'
+  }
+
+  const filteredPlans = flightPlans.filter(plan => {
+    if (filter === 'all') return true
+    const status = getStatus(plan.scheduled_for)
+    return status === filter
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Link href="/dashboard">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Flight Plans</h1>
+                <p className="text-sm text-gray-600">Manage your drone survey missions</p>
+              </div>
+            </div>
+            <Link href="/dashboard/flight-planner">
+              <Button className="bg-green-700 hover:bg-green-800">
+                <Plus className="w-4 h-4 mr-2" />
+                New Flight Plan
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        {/* Filters */}
+        <div className="mb-6 flex items-center space-x-2">
+          <Button
+            variant={filter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('all')}
+          >
+            All ({flightPlans.length})
+          </Button>
+          <Button
+            variant={filter === 'scheduled' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('scheduled')}
+          >
+            Scheduled ({flightPlans.filter(p => getStatus(p.scheduled_for) === 'scheduled').length})
+          </Button>
+          <Button
+            variant={filter === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('completed')}
+          >
+            Completed ({flightPlans.filter(p => getStatus(p.scheduled_for) === 'completed').length})
+          </Button>
+        </div>
+
+        {/* Flight Plans Grid */}
+        {filteredPlans.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <Plane className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No flight plans yet</h3>
+              <p className="text-gray-600 mb-4">Create your first flight plan to get started</p>
+              <Link href="/dashboard/flight-planner">
+                <Button className="bg-green-700 hover:bg-green-800">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Flight Plan
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredPlans.map((plan) => {
+              const status = getStatus(plan.scheduled_for)
+              
+              return (
+                <Card key={plan.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">{plan.name}</CardTitle>
+                        <CardDescription>{getPlotName(plan.plot_id)}</CardDescription>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-white">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/flight-plans/${plan.id}`}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/flight-planner?edit=${plan.id}`}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Plan
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => deleteFlight(plan.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Status</span>
+                        <Badge variant={status === 'scheduled' ? 'default' : 'secondary'}>
+                          {status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-600">Drone</p>
+                          <p className="font-medium">{plan.drone_model}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Area</p>
+                          <p className="font-medium">{getPlotArea(plan.plot_id)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Altitude</p>
+                          <p className="font-medium">{plan.altitude_m}m</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Duration</p>
+                          <p className="font-medium">{plan.estimated_duration_min} min</p>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 space-y-2">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="w-4 h-4 mr-2" />
+                          {new Date(plan.scheduled_for).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Clock className="w-4 h-4 mr-2" />
+                          {new Date(plan.scheduled_for).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      
+                      <div className="pt-3 flex space-x-2">
+                        <Link href={`/dashboard/flight-plans/${plan.id}`} className="flex-1">
+                          <Button variant="outline" className="w-full" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                        </Link>
+                        <Button variant="outline" size="sm" title="Download waypoints">
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
