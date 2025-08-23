@@ -4,307 +4,243 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth/auth-context'
-import { ProtectedRoute } from '@/lib/auth/protected-route'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase/client'
-import Link from 'next/link'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import Image from 'next/image'
-import {
-  BarChart3,
-  Plane,
-  MapPin,
-  Calendar,
-  TrendingUp,
-  Plus,
-  Settings,
-  LogOut,
-  Users,
-  Clock,
-  Cloud,
-  AlertCircle,
-  CheckCircle2,
-  Eye,
-  Upload,
-  Activity,
-  Trash2,
+import { 
+  Plane, MapPin, Camera, Leaf, TrendingUp,
+  Calendar, ChevronRight, Plus, Upload, BarChart3, 
+  Clock, Search, Filter, MoreVertical, Edit, Trash2,
+  CheckCircle2, AlertCircle, PlayCircle, FileText,
+  Activity, Users, Settings, HelpCircle, LogOut,
+  Home, Map, Eye, Lock
 } from 'lucide-react'
-
-interface Plot {
-  id: string
-  name: string
-  area_acres: number
-  plant_type: string
-  created_at: string
-  last_flight?: string
-  plant_count?: number
-}
-
-interface FlightPlan {
-  id: string
-  name: string
-  plot_id: string
-  scheduled_for: string
-  drone_model: string
-  status: string
-  altitude_m?: number
-  estimated_duration_min?: number
-}
+import Link from 'next/link'
 
 interface DashboardStats {
   totalPlots: number
   totalFlights: number
   totalPlants: number
-  activeFlightPlans: number
-  avgAccuracy: number
-  flightHours: number
+  pendingUploads: number
+  recentFlights: any[]
+  upcomingMissions: any[]
+  plotsList: any[]
+  flightPlans: any[]
 }
 
 export default function DashboardPage() {
-  return (
-    <ProtectedRoute>
-      <DashboardContent />
-    </ProtectedRoute>
-  )
-}
-
-function DashboardContent() {
-  const { user, userProfile, signOut, isDemo } = useAuth()
+  const { user, userProfile, isDemo, signOut } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const tabParam = searchParams.get('tab')
-  const [activeTab, setActiveTab] = useState(tabParam || 'overview')
-  const [plots, setPlots] = useState<Plot[]>([])
-  const [flightPlans, setFlightPlans] = useState<FlightPlan[]>([])
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview')
   const [stats, setStats] = useState<DashboardStats>({
     totalPlots: 0,
     totalFlights: 0,
     totalPlants: 0,
-    activeFlightPlans: 0,
-    avgAccuracy: 99.5,
-    flightHours: 0,
+    pendingUploads: 0,
+    recentFlights: [],
+    upcomingMissions: [],
+    plotsList: [],
+    flightPlans: []
   })
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [flightSearchQuery, setFlightSearchQuery] = useState('')
+  const [userRole, setUserRole] = useState<string>('viewer')
+  const checkRole = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    setUserRole(profile?.role || 'viewer')
+  }
+}
 
-  // Update activeTab when URL parameter changes
+useEffect(() => {
+  loadDashboardData()
+  checkRole() // Add this
+}, [])
+
   useEffect(() => {
-    if (tabParam) {
-      setActiveTab(tabParam)
+    const tab = searchParams.get('tab')
+    if (tab) {
+      setActiveTab(tab)
     }
-  }, [tabParam])
+  }, [searchParams])
 
-  // Refetch data when tab changes to flights
-  useEffect(() => {
-    if (activeTab === 'flights' && !isDemo && user) {
-      // Refetch flight plans when switching to flights tab
-      supabase
-        .from('flight_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('scheduled_for', { ascending: false })
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setFlightPlans(data)
-          }
-        })
-    }
-  }, [activeTab, isDemo, user])
-
-  useEffect(() => {
+  const loadDashboardData = async () => {
     if (isDemo) {
-      // Load demo data
-      setPlots([
-        {
-          id: '1',
-          name: 'North Field A',
-          area_acres: 2.5,
-          plant_type: 'Tomatoes',
-          created_at: '2024-01-15',
-          last_flight: '2024-01-18',
-          plant_count: 1247,
-        },
-        {
-          id: '2',
-          name: 'Greenhouse Block B',
-          area_acres: 1.8,
-          plant_type: 'Peppers',
-          created_at: '2024-01-10',
-          last_flight: '2024-01-17',
-          plant_count: 892,
-        },
-        {
-          id: '3',
-          name: 'South Nursery',
-          area_acres: 3.2,
-          plant_type: 'Herbs',
-          created_at: '2024-01-05',
-          last_flight: '2024-01-16',
-          plant_count: 1508,
-        },
-      ])
+      // Demo data
       setStats({
         totalPlots: 3,
         totalFlights: 12,
-        totalPlants: 3647,
-        activeFlightPlans: 2,
-        avgAccuracy: 99.5,
-        flightHours: 24.5,
+        totalPlants: 14847,
+        pendingUploads: 2,
+        recentFlights: [
+          {
+            id: '1',
+            name: 'North Field Survey',
+            completed_at: new Date().toISOString(),
+            plant_count: 1247,
+            status: 'completed',
+            images_captured: 147,
+            flight_plans: { name: 'North Field Survey' },
+            plant_counts: [{ count: 1247 }]
+          },
+          {
+            id: '2',
+            name: 'Greenhouse Check',
+            completed_at: new Date(Date.now() - 86400000).toISOString(),
+            plant_count: 892,
+            status: 'completed',
+            images_captured: 98,
+            flight_plans: { name: 'Greenhouse Check' },
+            plant_counts: [{ count: 892 }]
+          }
+        ],
+        upcomingMissions: [
+          {
+            id: '1',
+            name: 'Weekly Survey - South',
+            scheduled_for: new Date(Date.now() + 86400000).toISOString(),
+            plot_name: 'South Nursery',
+            drone_model: 'DJI Mavic 3',
+            status: 'scheduled'
+          }
+        ],
+        plotsList: [
+          {
+            id: '1',
+            name: 'North Field A',
+            area_acres: 2.5,
+            plant_type: 'Tomatoes',
+            last_surveyed: new Date(Date.now() - 86400000).toISOString(),
+            plant_count: 1247
+          },
+          {
+            id: '2',
+            name: 'Greenhouse Block B',
+            area_acres: 1.8,
+            plant_type: 'Peppers',
+            last_surveyed: new Date(Date.now() - 172800000).toISOString(),
+            plant_count: 892
+          },
+          {
+            id: '3',
+            name: 'South Nursery',
+            area_acres: 3.2,
+            plant_type: 'Mixed Herbs',
+            last_surveyed: new Date(Date.now() - 604800000).toISOString(),
+            plant_count: 1456
+          }
+        ],
+        flightPlans: [
+          {
+            id: '1',
+            name: 'North Field Survey',
+            plot_name: 'North Field A',
+            scheduled_for: new Date(Date.now() + 86400000).toISOString(),
+            drone_model: 'DJI Mavic 3',
+            status: 'scheduled',
+            altitude_m: 30,
+            estimated_duration_min: 15
+          },
+          {
+            id: '2',
+            name: 'Greenhouse Inspection',
+            plot_name: 'Greenhouse Block B',
+            scheduled_for: new Date(Date.now() + 172800000).toISOString(),
+            drone_model: 'DJI Air 2S',
+            status: 'draft',
+            altitude_m: 25,
+            estimated_duration_min: 12
+          },
+          {
+            id: '3',
+            name: 'Weekly Plant Count',
+            plot_name: 'South Nursery',
+            scheduled_for: new Date(Date.now() + 259200000).toISOString(),
+            drone_model: 'DJI Mavic 3',
+            status: 'draft',
+            altitude_m: 35,
+            estimated_duration_min: 20
+          }
+        ]
       })
-      setFlightPlans([
-        {
-          id: '1',
-          name: 'Weekly Survey - North Field',
-          plot_id: '1',
-          scheduled_for: '2024-01-25',
-          drone_model: 'DJI Mavic 3',
-          status: 'scheduled',
-        },
-        {
-          id: '2',
-          name: 'Growth Check - Greenhouse',
-          plot_id: '2',
-          scheduled_for: '2024-01-26',
-          drone_model: 'DJI Air 2S',
-          status: 'scheduled',
-        },
-      ])
       setLoading(false)
-    } else {
-      // Fetch real data from Supabase
-      fetchUserData()
+      return
     }
-  }, [isDemo])
-
-  const fetchUserData = async () => {
-    if (!user) return
 
     try {
-      // Fetch plots
-      const { data: plotsData, error: plotsError } = await supabase
-        .from('plots')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      // Real data fetch
+      const [plotsRes, flightsRes, countsRes, plansRes] = await Promise.all([
+        supabase.from('plots').select('*').eq('user_id', user?.id),
+        supabase.from('flights').select('*, flight_plans(name), plant_counts(count)').eq('user_id', user?.id).order('completed_at', { ascending: false }),
+        supabase.from('plant_counts').select('count').eq('user_id', user?.id),
+        supabase.from('flight_plans').select('*, plots(name)').eq('user_id', user?.id).order('scheduled_for', { ascending: false })
+      ])
 
-      if (plotsError) {
-        console.error('Error fetching plots:', plotsError)
-      } else {
-        setPlots(plotsData || [])
-      }
-
-      // Fetch flight plans
-      const { data: plansData, error: plansError } = await supabase
-        .from('flight_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('scheduled_for', { ascending: false })
-
-      if (plansError) {
-        console.error('Error fetching flight plans:', plansError)
-      } else {
-        setFlightPlans(plansData || [])
-        console.log('Fetched flight plans:', plansData) // Debug log
-      }
-
-      // Calculate stats
-      const { data: flightsData } = await supabase
-        .from('flights')
-        .select('*')
-        .eq('status', 'completed')
-
-      const { data: countsData } = await supabase
-        .from('plant_counts')
-        .select('count')
-
-      const totalPlants = countsData?.reduce((sum, item) => sum + item.count, 0) || 0
-      const totalFlights = flightsData?.length || 0
-      const flightHours = flightsData?.reduce((sum, flight) => {
-        if (flight.started_at && flight.completed_at) {
-          const duration = new Date(flight.completed_at).getTime() - new Date(flight.started_at).getTime()
-          return sum + duration / (1000 * 60 * 60)
-        }
-        return sum
-      }, 0) || 0
+      const totalPlants = countsRes.data?.reduce((sum, pc) => sum + pc.count, 0) || 0
+      const pendingUploads = flightsRes.data?.filter(f => f.status === 'completed' && !f.plant_counts?.length).length || 0
 
       setStats({
-        totalPlots: plotsData?.length || 0,
-        totalFlights,
+        totalPlots: plotsRes.data?.length || 0,
+        totalFlights: flightsRes.data?.filter(f => f.status === 'completed').length || 0,
         totalPlants,
-        activeFlightPlans: plansData?.filter(p => p.scheduled_for && new Date(p.scheduled_for) > new Date()).length || 0,
-        avgAccuracy: 99.5,
-        flightHours: Math.round(flightHours * 10) / 10,
+        pendingUploads,
+        recentFlights: flightsRes.data?.slice(0, 5) || [],
+        upcomingMissions: plansRes.data?.filter(p => new Date(p.scheduled_for) > new Date()).slice(0, 3) || [],
+        plotsList: plotsRes.data || [],
+        flightPlans: plansRes.data || []
       })
     } catch (error) {
-      console.error('Error fetching data:', error)
+      console.error('Error loading dashboard:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const getWeatherStatus = () => {
-    const conditions = ['Excellent', 'Good', 'Fair', 'Poor']
-    const icons = [CheckCircle2, Cloud, Cloud, AlertCircle]
-    const colors = ['text-green-600', 'text-blue-600', 'text-yellow-600', 'text-red-600']
-    const index = Math.floor(Math.random() * conditions.length)
-    const Icon = icons[index]
+  const handleDeletePlot = async (plotId: string) => {
+    if (!confirm('Are you sure you want to delete this plot?')) return
     
-    return (
-      <div className={`flex items-center space-x-2 ${colors[index]}`}>
-        <Icon className="w-5 h-5" />
-        <span className="font-medium">{conditions[index]} conditions</span>
-      </div>
-    )
-  }
-
-  const getStatus = (scheduledFor: string) => {
-    const now = new Date()
-    const scheduled = new Date(scheduledFor)
-    return scheduled > now ? 'scheduled' : 'completed'
-  }
-
-  const getPlotName = (plotId: string | null) => {
-    if (!plotId) return 'Custom Area'
-    const plot = plots.find(p => p.id === plotId)
-    return plot?.name || 'Unknown Plot'
-  }
-
-  const getPlotArea = (plotId: string | null) => {
-    if (!plotId) return 'N/A'
-    const plot = plots.find(p => p.id === plotId)
-    return plot?.area_acres ? `${plot.area_acres} acres` : 'N/A'
-  }
-
-  const deleteFlight = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this flight plan?')) return
-
-    if (isDemo) {
-      setFlightPlans(flightPlans.filter(fp => fp.id !== id))
-      return
+    try {
+      const { error } = await supabase
+        .from('plots')
+        .delete()
+        .eq('id', plotId)
+        .eq('user_id', user?.id)
+      
+      if (error) throw error
+      loadDashboardData()
+    } catch (error) {
+      console.error('Error deleting plot:', error)
     }
+  }
 
+  const handleDeleteFlightPlan = async (planId: string) => {
+    if (!confirm('Are you sure you want to delete this flight plan?')) return
+    
     try {
       const { error } = await supabase
         .from('flight_plans')
         .delete()
-        .eq('id', id)
-        .eq('user_id', user!.id)
-
+        .eq('id', planId)
+        .eq('user_id', user?.id)
+      
       if (error) throw error
-      setFlightPlans(flightPlans.filter(fp => fp.id !== id))
+      loadDashboardData()
     } catch (error) {
       console.error('Error deleting flight plan:', error)
-      alert('Failed to delete flight plan')
     }
   }
-
-  const filteredPlans = flightPlans.filter(plan => {
-    if (filter === 'all') return true
-    const status = getStatus(plan.scheduled_for)
-    return status === filter
-  })
 
   if (loading) {
     return (
@@ -319,512 +255,497 @@ function DashboardContent() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <Link href="/">
-              <Image src="/images/plnt-logo.svg" alt="PLNT Logo" width={150} height={50} className="h-12 w-auto" priority />
+              <Image 
+                src="/images/plnt-logo.svg" 
+                alt="PLNT Logo" 
+                width={150} 
+                height={50} 
+                className="h-12 w-auto" 
+                priority 
+              />
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-sm text-gray-600">
-                {isDemo ? 'Demo Mode' : `Welcome back, ${userProfile?.company_name || userProfile?.display_name || user?.email || 'User'}`}
-              </p>
-            </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            {getWeatherStatus()}
-            {isDemo ? (
-              <Link href="/auth/signup">
-                <Button className="bg-green-700 hover:bg-green-800 text-white">
-                  Upgrade to Full Access
-                </Button>
-              </Link>
-            ) : (
-              <Button variant="outline" onClick={signOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+          {/* Navigation Tabs */}
+          <nav className="hidden md:flex space-x-8">
+            <button 
+              onClick={() => setActiveTab('overview')}
+              className={`font-medium ${activeTab === 'overview' ? 'text-green-700' : 'text-gray-700 hover:text-green-700'}`}
+            >
+              Overview
+            </button>
+            <button 
+              onClick={() => setActiveTab('plots')}
+              className={`font-medium ${activeTab === 'plots' ? 'text-green-700' : 'text-gray-700 hover:text-green-700'}`}
+            >
+              Plots
+            </button>
+            <button 
+              onClick={() => setActiveTab('flights')}
+              className={`font-medium ${activeTab === 'flights' ? 'text-green-700' : 'text-gray-700 hover:text-green-700'}`}
+            >
+              Flight Plans
+            </button>
+            <button 
+              onClick={() => setActiveTab('results')}
+              className={`font-medium ${activeTab === 'results' ? 'text-green-700' : 'text-gray-700 hover:text-green-700'}`}
+            >
+              Results
+            </button>
+            <Link href="/dashboard/analytics" className="text-gray-700 hover:text-green-700 font-medium">
+              Analytics
+            </Link>
+          </nav>
+          
+          {/* User Menu - Simplified */}
+          <div className="flex items-center space-x-3">
+            <Link href="/dashboard/flight-planner">
+              <Button className="bg-green-700 hover:bg-green-800 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                New Flight
               </Button>
-            )}
+            </Link>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => signOut()}
+              className="text-gray-700 hover:text-red-600"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
 
+      {/* Admin Quick Access (only for admins) */}
+{userRole === 'admin' && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <Lock className="w-5 h-5 text-red-600 mr-3" />
+        <div>
+          <h3 className="font-semibold text-red-900">Admin Tools Available</h3>
+          <p className="text-sm text-red-700">Access training data management tools</p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Link href="/dashboard/admin/upload-training">
+          <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+            Upload Training Images
+          </Button>
+        </Link>
+        <Link href="/dashboard/admin/annotate">
+          <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+            Annotate Data
+          </Button>
+        </Link>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {isDemo && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5 text-blue-600" />
-              <p className="text-blue-800">
-                <strong>Demo Mode:</strong> You're viewing sample data. 
-                <Link href="/auth/signup" className="ml-2 underline font-medium">
-                  Create an account
-                </Link> to save your flight plans and access all features.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="plots">My Plots</TabsTrigger>
-            <TabsTrigger value="flights">Flight Plans</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-
+        <div className="space-y-6">
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            {/* Stats Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Plots</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalPlots}</p>
-                    </div>
-                    <MapPin className="w-8 h-8 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Flights</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalFlights}</p>
-                    </div>
-                    <Plane className="w-8 h-8 text-blue-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Plants Counted</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.totalPlants.toLocaleString()}</p>
-                    </div>
-                    <Activity className="w-8 h-8 text-purple-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Active Plans</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.activeFlightPlans}</p>
-                    </div>
-                    <Calendar className="w-8 h-8 text-orange-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Accuracy</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.avgAccuracy}%</p>
-                    </div>
-                    <CheckCircle2 className="w-8 h-8 text-green-600" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Flight Hours</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.flightHours}</p>
-                    </div>
-                    <Clock className="w-8 h-8 text-indigo-600" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="grid md:grid-cols-3 gap-4">
-              <Link href="/dashboard/flight-planner">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                        <Plane className="w-6 h-6 text-green-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">Create Flight Plan</h3>
-                        <p className="text-sm text-gray-600">Plan a new survey mission</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href="/dashboard/plots/new">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Plus className="w-6 h-6 text-blue-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">Add New Plot</h3>
-                        <p className="text-sm text-gray-600">Define a new survey area</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-
-              <Link href="/dashboard/upload">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                        <Upload className="w-6 h-6 text-purple-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">Upload Images</h3>
-                        <p className="text-sm text-gray-600">Process drone imagery</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            </div>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Flights</CardTitle>
-                <CardDescription>Your latest survey missions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {plots.slice(0, 3).map((plot) => (
-                    <div key={plot.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                          <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{plot.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {plot.last_flight || 'No flights yet'} • {plot.plant_count?.toLocaleString() || 0} plants
-                          </p>
-                        </div>
-                      </div>
-                      <Link href={`/dashboard/plots/${plot.id}`}>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Plots Tab */}
-          <TabsContent value="plots" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold">My Plots</h2>
-                <p className="text-gray-600">Manage your nursery survey areas</p>
-              </div>
-              <Link href="/dashboard/plots/new">
-                <Button className="bg-green-700 hover:bg-green-800 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add New Plot
-                </Button>
-              </Link>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {plots.map((plot) => (
-                <Card key={plot.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{plot.name}</CardTitle>
-                      <Badge variant="secondary">{plot.plant_type}</Badge>
-                    </div>
+          {activeTab === 'overview' && (
+            <>
+              {/* Quick Stats - Only on Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Plots</CardTitle>
+                    <MapPin className="h-4 w-4 text-gray-400" />
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Area:</span>
-                        <span className="font-medium">{plot.area_acres} acres</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Last Flight:</span>
-                        <span className="font-medium">{plot.last_flight || 'Never'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Plant Count:</span>
-                        <span className="font-medium">{plot.plant_count?.toLocaleString() || 'N/A'}</span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex space-x-2">
-                      <Link href={`/dashboard/plots/${plot.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/flight-planner?plot=${plot.id}`} className="flex-1">
-                        <Button className="w-full bg-green-700 hover:bg-green-800 text-white" size="sm">
-                          <Plane className="w-4 h-4 mr-2" />
-                          Plan Flight
-                        </Button>
-                      </Link>
-                    </div>
+                    <div className="text-2xl font-bold">{stats.totalPlots}</div>
+                    <p className="text-xs text-gray-500 mt-1">Active areas</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </TabsContent>
 
-          {/* Flight Plans Tab */}
-          <TabsContent value="flights" className="space-y-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Flight Plans</h2>
-                <p className="text-gray-600">Manage your drone survey missions</p>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Completed Flights</CardTitle>
+                    <Plane className="h-4 w-4 text-gray-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.totalFlights}</div>
+                    <p className="text-xs text-gray-500 mt-1">Total missions</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Plants Counted</CardTitle>
+                    <Leaf className="h-4 w-4 text-gray-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.totalPlants.toLocaleString()}</div>
+                    <p className="text-xs text-green-600 mt-1 flex items-center">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      +12% vs last month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Pending Uploads</CardTitle>
+                    <Upload className="h-4 w-4 text-gray-400" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.pendingUploads}</div>
+                    {stats.pendingUploads > 0 && (
+                      <Link href="/dashboard/upload">
+                        <p className="text-xs text-blue-600 mt-1 hover:underline cursor-pointer">
+                          Upload now →
+                        </p>
+                      </Link>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-              <Link href="/dashboard/flight-planner">
-                <Button className="bg-green-700 hover:bg-green-800 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Flight Plan
-                </Button>
-              </Link>
-            </div>
 
-            {/* Filters */}
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={filter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('all')}
-              >
-                All ({flightPlans.length})
-              </Button>
-              <Button
-                variant={filter === 'scheduled' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('scheduled')}
-              >
-                Scheduled ({flightPlans.filter(p => getStatus(p.scheduled_for) === 'scheduled').length})
-              </Button>
-              <Button
-                variant={filter === 'completed' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('completed')}
-              >
-                Completed ({flightPlans.filter(p => getStatus(p.scheduled_for) === 'completed').length})
-              </Button>
-            </div>
+              {/* Quick Actions - Only on Overview */}
+              <div className="grid md:grid-cols-4 gap-4 mb-6">
+                <Link href="/dashboard/flight-planner">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="pt-6">
+                      <Plus className="w-8 h-8 text-green-600 mb-2" />
+                      <h3 className="font-semibold">New Flight Plan</h3>
+                      <p className="text-sm text-gray-500 mt-1">Create mission</p>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-            {/* Flight Plans Grid */}
-            {filteredPlans.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Plane className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No flight plans yet</h3>
-                  <p className="text-gray-600 mb-4">Create your first flight plan to get started</p>
-                  <Link href="/dashboard/flight-planner">
-                    <Button className="bg-green-700 hover:bg-green-800 text-white">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Flight Plan
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredPlans.map((plan) => {
-                  const status = getStatus(plan.scheduled_for)
-                  const plotName = getPlotName(plan.plot_id)
-                  const plotArea = getPlotArea(plan.plot_id)
-                  
-                  return (
-                    <Card key={plan.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg">{plan.name}</CardTitle>
-                          <CardDescription>{plotName}</CardDescription>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Status</span>
-                            <Badge variant={status === 'scheduled' ? 'default' : 'secondary'}>
-                              {status}
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <p className="text-gray-600">Drone</p>
-                              <p className="font-medium">{plan.drone_model}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Area</p>
-                              <p className="font-medium">{plotArea}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Altitude</p>
-                              <p className="font-medium">{plan.altitude_m || 'N/A'}m</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Duration</p>
-                              <p className="font-medium">{plan.estimated_duration_min || 'N/A'} min</p>
-                            </div>
-                          </div>
-                          
-                          <div className="pt-2 space-y-2">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              {new Date(plan.scheduled_for).toLocaleDateString()}
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600">
-                              <Clock className="w-4 h-4 mr-2" />
-                              {new Date(plan.scheduled_for).toLocaleTimeString()}
-                            </div>
-                          </div>
-                          
-                          <div className="pt-3 flex space-x-2">
-                            <Link href={`/dashboard/flight-plans/${plan.id}`} className="flex-1">
-                              <Button className="w-full bg-green-700 hover:bg-green-800 text-white" size="sm">
-                                <Eye className="w-4 h-4 mr-2" />
-                                View
-                              </Button>
-                            </Link>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => deleteFlight(plan.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                <Link href="/dashboard/test-flight">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="pt-6">
+                      <Plane className="w-8 h-8 text-blue-600 mb-2" />
+                      <h3 className="font-semibold">Test Flight</h3>
+                      <p className="text-sm text-gray-500 mt-1">Simulate mission</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+
+                <Link href="/dashboard/upload">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="pt-6">
+                      <Camera className="w-8 h-8 text-purple-600 mb-2" />
+                      <h3 className="font-semibold">Upload Images</h3>
+                      <p className="text-sm text-gray-500 mt-1">Process photos</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+
+                <Link href="/dashboard/analytics">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="pt-6">
+                      <BarChart3 className="w-8 h-8 text-orange-600 mb-2" />
+                      <h3 className="font-semibold">View Analytics</h3>
+                      <p className="text-sm text-gray-500 mt-1">Track trends</p>
+                    </CardContent>
+                  </Card>
+                </Link>
               </div>
-            )}
-          </TabsContent>
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Analytics</h2>
-              <p className="text-gray-600">Track your nursery performance over time</p>
-            </div>
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Plant Count Trends</CardTitle>
-                  <CardDescription>Monthly plant count across all plots</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
-                    <div className="text-center">
-                      <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">Plant growth chart</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Flight Efficiency</CardTitle>
-                  <CardDescription>Coverage area per flight hour</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
-                    <div className="text-center">
-                      <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">Efficiency metrics</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Settings</h2>
-              <p className="text-gray-600">Manage your account and preferences</p>
-            </div>
-
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Email</label>
-                    <p className="mt-1">{isDemo ? 'demo@plnt.tech' : user?.email}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Account Type</label>
-                    <p className="mt-1">{isDemo ? 'Demo Account' : 'Professional'}</p>
-                  </div>
-                  {isDemo && (
-                    <Link href="/auth/signup">
-                      <Button className="bg-green-700 hover:bg-green-800 text-white">
-                        Upgrade to Full Account
-                      </Button>
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Drone Fleet</CardTitle>
-                  <CardDescription>Manage your drone configurations</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div>
-                        <p className="font-medium">DJI Mavic 3</p>
-                        <p className="text-sm text-gray-600">Primary drone</p>
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Recent Flights */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Flights</CardTitle>
+                    <CardDescription>Your latest completed missions</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {stats.recentFlights.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Plane className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-500 text-sm">No flights completed yet</p>
+                        <Link href="/dashboard/test-flight">
+                          <Button variant="outline" size="sm" className="mt-4">
+                            Test Flight Simulator
+                          </Button>
+                        </Link>
                       </div>
-                      <Button variant="ghost" size="sm">Configure</Button>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div>
-                        <p className="font-medium">DJI Air 2S</p>
-                        <p className="text-sm text-gray-600">Backup drone</p>
+                    ) : (
+                      stats.recentFlights.slice(0, 5).map(flight => (
+                        <div key={flight.id} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{flight.flight_plans?.name || 'Unnamed'}</p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(flight.completed_at).toLocaleDateString()} • 
+                              {flight.plant_counts?.[0]?.count || 0} plants
+                            </p>
+                          </div>
+                          <Link href={`/dashboard/flights/${flight.id}`}>
+                            <Button variant="ghost" size="sm">View</Button>
+                          </Link>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Upcoming Missions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Missions</CardTitle>
+                    <CardDescription>Scheduled flight plans</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {stats.upcomingMissions.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                        <p className="text-gray-500 text-sm mb-4">No upcoming missions</p>
+                        <Link href="/dashboard/flight-planner">
+                          <Button variant="outline" size="sm">
+                            Schedule Mission
+                          </Button>
+                        </Link>
                       </div>
-                      <Button variant="ghost" size="sm">Configure</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    ) : (
+                      stats.upcomingMissions.map(mission => (
+                        <div key={mission.id} className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{mission.name}</p>
+                            <p className="text-sm text-gray-500">
+                              {mission.plot_name} • {new Date(mission.scheduled_for).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Badge>{mission.status}</Badge>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+
+          {/* Plots Tab */}
+          {activeTab === 'plots' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Input
+                  type="search"
+                  placeholder="Search plots..."
+                  className="w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Link href="/dashboard/plots/new">
+                  <Button className="bg-green-700 hover:bg-green-800 text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Plot
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {stats.plotsList.filter(plot => 
+                  plot.name.toLowerCase().includes(searchQuery.toLowerCase())
+                ).map(plot => (
+                  <Card key={plot.id}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{plot.name}</CardTitle>
+                      <CardDescription>{plot.plant_type}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm mb-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Area</span>
+                          <span className="font-medium">{plot.area_acres} acres</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Plant Count</span>
+                          <span className="font-medium">{plot.plant_count?.toLocaleString() || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Last Survey</span>
+                          <span className="font-medium">
+                            {plot.last_surveyed 
+                              ? new Date(plot.last_surveyed).toLocaleDateString()
+                              : 'Never'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="space-y-2">
+                        <Link href={`/dashboard/flight-planner?plot=${plot.id}`}>
+                          <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
+                            <Plane className="w-4 h-4 mr-2" />
+                            Schedule Survey
+                          </Button>
+                        </Link>
+                        <div className="flex gap-2">
+                          <Button 
+                            className="flex-1" 
+                            variant="outline"
+                            onClick={() => router.push(`/dashboard/plots/${plot.id}`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button 
+                            className="flex-1 hover:bg-red-50 hover:text-red-700 hover:border-red-300" 
+                            variant="outline"
+                            onClick={() => handleDeletePlot(plot.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+
+          {/* Flight Plans Tab - Now with Cards */}
+          {activeTab === 'flights' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Input
+                  type="search"
+                  placeholder="Search flight plans..."
+                  className="w-64"
+                  value={flightSearchQuery}
+                  onChange={(e) => setFlightSearchQuery(e.target.value)}
+                />
+                <Link href="/dashboard/flight-planner">
+                  <Button className="bg-green-700 hover:bg-green-800 text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Flight Plan
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {stats.flightPlans.filter(plan => 
+                  plan.name.toLowerCase().includes(flightSearchQuery.toLowerCase()) ||
+                  (plan.plot_name && plan.plot_name.toLowerCase().includes(flightSearchQuery.toLowerCase()))
+                ).map(plan => (
+                  <Card key={plan.id}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{plan.name}</CardTitle>
+                      <CardDescription>{plan.plots?.name || plan.plot_name || 'Custom Area'}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm mb-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Scheduled</span>
+                          <span className="font-medium">
+                            {new Date(plan.scheduled_for).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Drone</span>
+                          <span className="font-medium">{plan.drone_model}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Altitude</span>
+                          <span className="font-medium">{plan.altitude_m}m</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Duration</span>
+                          <span className="font-medium">{plan.estimated_duration_min} min</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Status</span>
+                          <Badge variant={
+                            plan.status === 'completed' ? 'default' :
+                            plan.status === 'scheduled' ? 'secondary' :
+                            'outline'
+                          }>
+                            {plan.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="space-y-2">
+                        <Link href={`/dashboard/flight-planner?edit=${plan.id}`}>
+                        <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
+                        <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Button>
+                          </Link>
+                        <div className="flex gap-2">
+                          <Button 
+                            className="flex-1" 
+                            variant="outline"
+                            onClick={() => router.push(`/dashboard/flight-planner?edit=${plan.id}`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button 
+                            className="flex-1 hover:bg-red-50 hover:text-red-700 hover:border-red-300" 
+                            variant="outline"
+                            onClick={() => handleDeleteFlightPlan(plan.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Results Tab */}
+          {activeTab === 'results' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Processing Results</h3>
+                <Link href="/dashboard/analytics">
+                  <Button variant="outline">
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    View Analytics
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="grid gap-4">
+                {stats.recentFlights.filter(f => f.plant_counts?.length > 0).map(flight => (
+                  <Card key={flight.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <CheckCircle2 className="w-8 h-8 text-green-600" />
+                          <div>
+                            <h4 className="font-semibold">{flight.flight_plans?.name}</h4>
+                            <p className="text-sm text-gray-500">
+                              Completed {new Date(flight.completed_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-green-600">
+                            {flight.plant_counts?.[0]?.count?.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">plants detected</p>
+                        </div>
+                        <Link href={`/dashboard/flights/${flight.id}`}>
+                          <Button variant="outline">View Details</Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )
