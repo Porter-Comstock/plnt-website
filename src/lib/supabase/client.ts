@@ -164,6 +164,42 @@ export interface Database {
           individual_plants?: any
         }
       }
+      contacts: {
+        Row: {
+          id: string
+          first_name: string
+          last_name: string
+          email: string
+          nursery_name?: string
+          nursery_size?: string
+          message?: string
+          status: 'new' | 'contacted' | 'archived'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          first_name: string
+          last_name: string
+          email: string
+          nursery_name?: string
+          nursery_size?: string
+          message?: string
+          status?: 'new' | 'contacted' | 'archived'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          first_name?: string
+          last_name?: string
+          email?: string
+          nursery_name?: string
+          nursery_size?: string
+          message?: string
+          status?: 'new' | 'contacted' | 'archived'
+          updated_at?: string
+        }
+      }
     }
   }
 }

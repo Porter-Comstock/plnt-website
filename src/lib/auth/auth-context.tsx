@@ -1,5 +1,3 @@
-// Update your auth-context.tsx file:
-
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
@@ -32,8 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isDemo, setIsDemo] = useState(false)
+  const [isDemo, setIsDemoState] = useState(false)
   const router = useRouter()
+
+  // Initialize demo mode from localStorage on mount
+  useEffect(() => {
+    const storedDemoMode = localStorage.getItem('isDemoMode') === 'true'
+    setIsDemoState(storedDemoMode)
+  }, [])
+
+  // Custom setIsDemo that also updates localStorage
+  const setIsDemo = (value: boolean) => {
+    setIsDemoState(value)
+    if (value) {
+      localStorage.setItem('isDemoMode', 'true')
+    } else {
+      localStorage.removeItem('isDemoMode')
+    }
+  }
 
   // Fetch user profile
   const fetchUserProfile = async (userId: string) => {
@@ -53,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // If in demo mode, just set loading to false and return
+    if (isDemo) {
+      setLoading(false)
+      return
+    }
+
     let authSubscription: any = null;
 
     // Check active sessions and sets the user
@@ -97,23 +117,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authSubscription.unsubscribe()
       }
     }
-  }, [])
+  }, [isDemo]) // Add isDemo as dependency
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
+    localStorage.removeItem('isDemoMode')
+    setIsDemo(false)
     router.push('/dashboard')
   }
 
   const signUp = async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
+    localStorage.removeItem('isDemoMode')
+    setIsDemo(false)
     router.push('/dashboard')
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    // Only sign out from Supabase if there's a real user
+    if (user) {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+    }
+    
+    // Clear demo mode on sign out
     setIsDemo(false)
     setUserProfile(null)
     router.push('/')

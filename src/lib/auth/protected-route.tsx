@@ -1,4 +1,3 @@
-// lib/auth/protected-route.tsx
 'use client'
 
 import { useEffect } from 'react'
@@ -10,11 +9,16 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !user && !isDemo) {
+    // Don't redirect while loading
+    if (loading) return
+    
+    // Allow access if user exists OR if in demo mode
+    if (!user && !isDemo) {
       router.push('/auth/signin')
     }
   }, [user, loading, isDemo, router])
 
+  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -23,6 +27,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Allow access if user exists OR if in demo mode
   if (!user && !isDemo) {
     return null
   }

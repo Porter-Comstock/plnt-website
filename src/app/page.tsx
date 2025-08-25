@@ -1,5 +1,8 @@
+'use client'
+
 import Image from "next/image"
 import Link from "next/link"
+import ContactForm from '@/components/contact-form'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -84,11 +87,19 @@ export default function PLNTHomepage() {
                   </Button>
                 </Link>
                 <Link href="/dashboard">
-                  <Button size="lg" variant="outline" className="border-green-700 text-green-700 hover:bg-green-50">
-                    <BarChart3 className="w-5 h-5 mr-2" />
-                    View Demo
-                  </Button>
-                </Link>
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="border-green-700 text-green-700 hover:bg-green-50"
+                    onClick={() => {
+                        // Set demo mode before navigating
+                        window.location.href = '/demo'
+                      }}
+                    >
+                      <BarChart3 className="w-5 h-5 mr-2" />
+                      View Demo
+                    </Button>
+                  </Link>
               </div>
             </div>
             <div className="relative">
@@ -400,38 +411,7 @@ export default function PLNTHomepage() {
             <div>
               <Card className="p-8">
                 <h3 className="text-2xl font-semibold text-gray-900 mb-6">Schedule Your Demo</h3>
-                <form className="space-y-6">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                      <Input placeholder="John" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                      <Input placeholder="Doe" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <Input type="email" placeholder="john@nursery.com" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nursery Name</label>
-                    <Input placeholder="Your Nursery Name" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nursery Size (acres)</label>
-                    <Input placeholder="e.g., 25 acres" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tell us about your needs</label>
-                    <Textarea
-                      placeholder="What challenges are you facing with plant counting and inventory management?"
-                      rows={4}
-                    />
-                  </div>
-                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white">Schedule Demo</Button>
-                </form>
+                <ContactForm />
               </Card>
             </div>
             <div className="space-y-8">
@@ -476,8 +456,8 @@ export default function PLNTHomepage() {
                   </div>
                 </div>
               </div>
-
-              {/* Demo CTA */}
+              
+              {/* Demo CTA - moved inside the contact section */}
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h4 className="text-xl font-semibold text-gray-900 mb-4">Try the Flight Planner</h4>
                 <p className="text-gray-600 mb-4">

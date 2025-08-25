@@ -33,7 +33,7 @@ interface DashboardStats {
   flightPlans: any[]
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { user, userProfile, isDemo, signOut } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -52,22 +52,23 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [flightSearchQuery, setFlightSearchQuery] = useState('')
   const [userRole, setUserRole] = useState<string>('viewer')
+  
   const checkRole = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    setUserRole(profile?.role || 'viewer')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setUserRole(profile?.role || 'viewer')
+    }
   }
-}
 
-useEffect(() => {
-  loadDashboardData()
-  checkRole() // Add this
-}, [])
+  useEffect(() => {
+    loadDashboardData()
+    checkRole()
+  }, [])
 
   useEffect(() => {
     const tab = searchParams.get('tab')
@@ -77,9 +78,13 @@ useEffect(() => {
   }, [searchParams])
 
   const loadDashboardData = async () => {
-    if (isDemo) {
-      // Demo data
-      setStats({
+  console.log('Loading dashboard data...')
+  console.log('isDemo from context:', isDemo)
+  
+  if (isDemo) {
+    console.log('Loading demo data...')
+    // Your demo data...
+    setStats({
         totalPlots: 3,
         totalFlights: 12,
         totalPlants: 14847,
@@ -178,9 +183,9 @@ useEffect(() => {
       setLoading(false)
       return
     }
-
+    
+    // Real data fetch
     try {
-      // Real data fetch
       const [plotsRes, flightsRes, countsRes, plansRes] = await Promise.all([
         supabase.from('plots').select('*').eq('user_id', user?.id),
         supabase.from('flights').select('*, flight_plans(name), plant_counts(count)').eq('user_id', user?.id).order('completed_at', { ascending: false }),
@@ -299,7 +304,7 @@ useEffect(() => {
             </Link>
           </nav>
           
-          {/* User Menu - Simplified */}
+          {/* User Menu */}
           <div className="flex items-center space-x-3">
             <Link href="/dashboard/flight-planner">
               <Button className="bg-green-700 hover:bg-green-800 text-white">
@@ -321,31 +326,33 @@ useEffect(() => {
       </header>
 
       {/* Admin Quick Access (only for admins) */}
-{userRole === 'admin' && (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <Lock className="w-5 h-5 text-red-600 mr-3" />
-        <div>
-          <h3 className="font-semibold text-red-900">Admin Tools Available</h3>
-          <p className="text-sm text-red-700">Access training data management tools</p>
+      {userRole === 'admin' && (
+        <div className="container mx-auto px-4 mt-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Lock className="w-5 h-5 text-red-600 mr-3" />
+                <div>
+                  <h3 className="font-semibold text-red-900">Admin Tools Available</h3>
+                  <p className="text-sm text-red-700">Access training data management tools</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/dashboard/admin/upload-training">
+                  <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                    Upload Training Images
+                  </Button>
+                </Link>
+                <Link href="/dashboard/admin/annotate">
+                  <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                    Annotate Data
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="flex gap-2">
-        <Link href="/dashboard/admin/upload-training">
-          <Button size="sm" variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
-            Upload Training Images
-          </Button>
-        </Link>
-        <Link href="/dashboard/admin/annotate">
-          <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
-            Annotate Data
-          </Button>
-        </Link>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -607,7 +614,7 @@ useEffect(() => {
             </div>
           )}
 
-          {/* Flight Plans Tab - Now with Cards */}
+          {/* Flight Plans Tab */}
           {activeTab === 'flights' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -671,11 +678,11 @@ useEffect(() => {
                       {/* Action Buttons */}
                       <div className="space-y-2">
                         <Link href={`/dashboard/flight-planner?edit=${plan.id}`}>
-                        <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
-                        <Eye className="w-4 h-4 mr-2" />
+                          <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
+                            <Eye className="w-4 h-4 mr-2" />
                             View Details
                           </Button>
-                          </Link>
+                        </Link>
                         <div className="flex gap-2">
                           <Button 
                             className="flex-1" 
@@ -749,4 +756,45 @@ useEffect(() => {
       </main>
     </div>
   )
+}
+
+export default function DashboardPage() {
+  const { user, loading, isDemo, setIsDemo } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  useEffect(() => {
+    // Check if demo parameter is in URL
+    const demoParam = searchParams.get('demo')
+    if (demoParam === 'true') {
+      setIsDemo(true)
+    }
+  }, [searchParams, setIsDemo])
+  
+  useEffect(() => {
+    console.log('Dashboard auth check - user:', user, 'isDemo:', isDemo, 'loading:', loading)
+    
+    // Only redirect if loading is complete AND no access
+    if (!loading && !user && !isDemo) {
+      console.log('No access, redirecting to signin...')
+      router.push('/auth/signin')
+    }
+  }, [user, loading, isDemo, router])
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700"></div>
+      </div>
+    )
+  }
+  
+  // Allow access if authenticated OR in demo mode
+  if (!user && !isDemo) {
+    console.log('No access after loading complete')
+    return null
+  }
+  
+  console.log('Rendering dashboard content - isDemo:', isDemo, 'user:', user)
+  return <DashboardContent />
 }

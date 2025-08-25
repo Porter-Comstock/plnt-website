@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { 
   LayoutDashboard, Map, Plane, Upload, BarChart3, 
-  Settings, Lock, Database, Brain
+  Settings, Lock, Database, Brain, Mail
 } from 'lucide-react'
 
 export default function DashboardLayout({ 
@@ -129,6 +129,13 @@ export default function DashboardLayout({
                       Model Training
                     </Button>
                   </Link>
+
+                  <Link href="/dashboard/admin/contacts">
+                    <Button variant="ghost" className="w-full justify-start text-red-600 hover:bg-red-50">
+                         <Mail className="w-4 h-4 mr-2" />
+                        Contact Submissions
+                    </Button>
+                 </Link>
                 </nav>
               </div>
             </div>
