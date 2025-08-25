@@ -1,7 +1,7 @@
 // app/demo/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,7 @@ interface DashboardStats {
   flightPlans: any[]
 }
 
-export default function DemoPage() {
+function DemoPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview')
@@ -613,5 +613,17 @@ export default function DemoPage() {
         </div>
       </main>
     </div>
+  )
+}
+// Main component with Suspense wrapper
+export default function DemoPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700"></div>
+      </div>
+    }>
+      <DemoPageContent />
+    </Suspense>
   )
 }
