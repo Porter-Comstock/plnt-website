@@ -677,7 +677,7 @@ function DashboardContent() {
                       
                       {/* Action Buttons */}
                       <div className="space-y-2">
-                        <Link href={`/dashboard/flight-planner?edit=${plan.id}`}>
+                        <Link href={`/dashboard/flight-plans?=${plan.id}`}>
                           <Button className="w-full bg-green-700 hover:bg-green-800 text-white">
                             <Eye className="w-4 h-4 mr-2" />
                             View Details
