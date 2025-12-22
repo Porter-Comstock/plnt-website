@@ -52,6 +52,9 @@ interface FlightPlan {
   waypoints: {
     coordinates: [number, number][]
     type: string
+    actions?: ('fly' | 'photo')[]
+    photoIntervalMeters?: number
+    estimatedPhotos?: number
   }
   estimated_duration_min: number
   created_at: string
@@ -185,50 +188,117 @@ export default function FlightPlanDetailPage() {
   }
 }
 
-  const downloadWaypoints = (format: 'kml' | 'csv' | 'json') => {
+  const downloadWaypoints = (format: 'kml' | 'csv' | 'json' | 'gpx' | 'litchi') => {
     if (!flightPlan?.waypoints?.coordinates || flightPlan.waypoints.coordinates.length === 0) {
       alert('No waypoints available for download')
       return
     }
-    
+
     const waypoints = flightPlan.waypoints.coordinates
+    const actions = flightPlan.waypoints.actions || waypoints.map(() => 'photo')
+    const photoIntervalMeters = flightPlan.waypoints.photoIntervalMeters
+    const estimatedPhotos = flightPlan.waypoints.estimatedPhotos || waypoints.length
     let content = ''
     let filename = ''
     let mimeType = ''
 
-    if (format === 'json') {
+    if (format === 'litchi') {
+      // Litchi CSV format for DJI drones with camera triggers
+      content = 'latitude,longitude,altitude(m),heading(deg),curvesize(m),rotationdir,gimbalmode,gimbalpitchangle,actiontype1,actionparam1,actiontype2,actionparam2,actiontype3,actionparam3,actiontype4,actionparam4,actiontype5,actionparam5,actiontype6,actionparam6,actiontype7,actionparam7,actiontype8,actionparam8,actiontype9,actionparam9,actiontype10,actionparam10,actiontype11,actionparam11,actiontype12,actionparam12,actiontype13,actionparam13,actiontype14,actionparam14,actiontype15,actionparam15,altitudemode,speed(m/s),poi_latitude,poi_longitude,poi_altitude(m),poi_altitudemode,photo_timeinterval,photo_distinterval\n'
+      waypoints.forEach((coord, index) => {
+        const action = actions[index] || 'photo'
+        // actiontype1=1 means Take Photo, actiontype1=-1 means no action
+        const actionType = action === 'photo' ? 1 : -1
+        content += `${coord[1]},${coord[0]},${flightPlan.altitude_m},0,0,0,2,-90,${actionType},0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,-1,0,1,${flightPlan.speed_ms},0,0,0,0,-1,${photoIntervalMeters || -1}\n`
+      })
+      filename = `${flightPlan.name.replace(/\s+/g, '_')}_litchi.csv`
+      mimeType = 'text/csv'
+    } else if (format === 'gpx') {
+      content = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="PLNT Flight Planner"
+     xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>${flightPlan.name}</name>
+    <desc>Photo interval: ${photoIntervalMeters?.toFixed(1) || 'N/A'}m, Estimated photos: ${estimatedPhotos}</desc>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <rte>
+    <name>${flightPlan.name}</name>
+${waypoints.map((coord, index) => {
+  const action = actions[index] || 'photo'
+  const wpName = action === 'photo' ? `PHOTO${index + 1}` : `WP${index + 1}`
+  return `    <rtept lat="${coord[1]}" lon="${coord[0]}">
+      <ele>${flightPlan.altitude_m}</ele>
+      <name>${wpName}</name>
+      <type>${action}</type>
+    </rtept>`
+}).join('\n')}
+  </rte>
+</gpx>`
+      filename = `${flightPlan.name.replace(/\s+/g, '_')}_waypoints.gpx`
+      mimeType = 'application/gpx+xml'
+    } else if (format === 'json') {
       const data = {
         name: flightPlan.name,
         drone: flightPlan.drone_model,
         altitude_m: flightPlan.altitude_m,
         speed_ms: flightPlan.speed_ms,
+        overlap_percent: flightPlan.overlap_percent,
+        photoIntervalMeters: photoIntervalMeters,
+        estimatedPhotos: estimatedPhotos,
         waypoints: waypoints.map((coord, index) => ({
           point: index + 1,
           longitude: coord[0],
           latitude: coord[1],
           altitude: flightPlan.altitude_m,
+          action: actions[index] || 'photo'
         }))
       }
       content = JSON.stringify(data, null, 2)
       filename = `${flightPlan.name.replace(/\s+/g, '_')}_waypoints.json`
       mimeType = 'application/json'
     } else if (format === 'csv') {
-      content = 'Point,Latitude,Longitude,Altitude(m)\n'
+      content = 'Point,Latitude,Longitude,Altitude(m),Action\n'
       waypoints.forEach((coord, index) => {
-        content += `${index + 1},${coord[1]},${coord[0]},${flightPlan.altitude_m}\n`
+        const action = actions[index] || 'photo'
+        content += `${index + 1},${coord[1]},${coord[0]},${flightPlan.altitude_m},${action.toUpperCase()}\n`
       })
+      // Add metadata as comment at the end
+      content += `\n# Photo Interval: ${photoIntervalMeters?.toFixed(1) || 'N/A'}m\n`
+      content += `# Estimated Photos: ${estimatedPhotos}\n`
+      content += `# For best results, use Litchi CSV format with Maven EVO or Litchi app\n`
       filename = `${flightPlan.name.replace(/\s+/g, '_')}_waypoints.csv`
       mimeType = 'text/csv'
     } else if (format === 'kml') {
+      const photoCount = actions.filter(a => a === 'photo').length
       content = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${flightPlan.name}</name>
+    <description>Photo interval: ${photoIntervalMeters?.toFixed(1) || 'N/A'}m, Estimated photos: ${estimatedPhotos}</description>
     <Style id="flightPath">
       <LineStyle>
         <color>ff0088ff</color>
         <width>3</width>
       </LineStyle>
+    </Style>
+    <Style id="photoPoint">
+      <IconStyle>
+        <color>ff00ff00</color>
+        <scale>0.8</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/shapes/camera.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Style id="flyPoint">
+      <IconStyle>
+        <color>ffff0000</color>
+        <scale>0.6</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href>
+        </Icon>
+      </IconStyle>
     </Style>
     <Placemark>
       <name>Flight Path</name>
@@ -240,13 +310,20 @@ ${waypoints.map(coord => `          ${coord[0]},${coord[1]},${flightPlan.altitud
         </coordinates>
       </LineString>
     </Placemark>
-    ${waypoints.map((coord, index) => `
+    ${waypoints.map((coord, index) => {
+      const action = actions[index] || 'photo'
+      const style = action === 'photo' ? 'photoPoint' : 'flyPoint'
+      const label = action === 'photo' ? `Photo ${index + 1}` : `Waypoint ${index + 1}`
+      return `
     <Placemark>
-      <name>Waypoint ${index + 1}</name>
+      <name>${label}</name>
+      <styleUrl>#${style}</styleUrl>
       <Point>
+        <altitudeMode>relativeToGround</altitudeMode>
         <coordinates>${coord[0]},${coord[1]},${flightPlan.altitude_m}</coordinates>
       </Point>
-    </Placemark>`).join('')}
+    </Placemark>`
+    }).join('')}
   </Document>
 </kml>`
       filename = `${flightPlan.name.replace(/\s+/g, '_')}_waypoints.kml`
@@ -263,7 +340,7 @@ ${waypoints.map(coord => `          ${coord[0]},${coord[1]},${flightPlan.altitud
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    
+
     // Show success message
     console.log(`Downloaded ${filename}`)
   }
@@ -403,33 +480,61 @@ ${waypoints.map(coord => `          ${coord[0]},${coord[1]},${flightPlan.altitud
             <CardHeader>
               <CardTitle>Download Waypoints</CardTitle>
               <CardDescription>
-                Export flight path for your drone • {flightPlan.waypoints?.coordinates?.length || 0} waypoints available
+                Export flight path with camera triggers • {flightPlan.waypoints?.coordinates?.length || 0} photo waypoints
+                {flightPlan.waypoints?.photoIntervalMeters && (
+                  <span className="block mt-1 font-medium text-green-700">
+                    Photo interval: {flightPlan.waypoints.photoIntervalMeters.toFixed(1)}m
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {flightPlan.waypoints?.coordinates && flightPlan.waypoints.coordinates.length > 0 ? (
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={() => downloadWaypoints('json')}
-                    className="bg-green-700 hover:bg-green-800 text-white"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Download as JSON (DJI)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadWaypoints('csv')}
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Download as CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => downloadWaypoints('kml')}
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Download as KML (Google Earth)
-                  </Button>
+                <div className="space-y-4">
+                  {flightPlan.waypoints?.photoIntervalMeters && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>For Maven EVO / Litchi:</strong> Import the Litchi CSV - camera triggers are included at each waypoint
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => downloadWaypoints('litchi')}
+                      className="bg-green-700 hover:bg-green-800 text-white"
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      Litchi CSV (Maven EVO)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => downloadWaypoints('kml')}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      KML (Google Earth)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => downloadWaypoints('json')}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      JSON
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => downloadWaypoints('csv')}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      CSV
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => downloadWaypoints('gpx')}
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      GPX
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm">No waypoints available for this flight plan</p>

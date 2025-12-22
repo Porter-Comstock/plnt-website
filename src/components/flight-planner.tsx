@@ -18,11 +18,19 @@ import { ArrowLeft, Save, Plane, Calendar, MapPin } from 'lucide-react'
 // Using Plane icon as Drone
 const Drone = Plane
 
+interface Waypoint {
+  lat: number
+  lng: number
+  action: 'fly' | 'photo'
+}
+
 interface MapArea {
   id: number
   points: { x: number; y: number; lat: number; lng: number }[]
   area: string
-  coordinates: { lat: number; lng: number }[]
+  coordinates: Waypoint[]
+  photoIntervalMeters?: number
+  estimatedPhotos?: number
 }
 
 interface Plot {
@@ -85,13 +93,13 @@ export default function FlightPlannerInterface() {
         
         if (boundary.length > 0) {
           setCurrentPlotBoundary(boundary)
-          
+
           // Calculate area
           const area = calculatePlotArea(boundary)
-          
-          // Generate optimized flight path
-          const flightPath = generateOptimizedFlightPath(boundary)
-          
+
+          // Generate optimized flight path with camera trigger waypoints
+          const { coordinates, photoIntervalMeters, estimatedPhotos } = generateOptimizedFlightPath(boundary)
+
           const newMapArea = {
             id: Date.now(),
             points: boundary.map((coord: { lat: number; lng: number }) => ({
@@ -101,9 +109,11 @@ export default function FlightPlannerInterface() {
               lng: coord.lng
             })),
             area: `${area.toFixed(2)} acres`,
-            coordinates: flightPath
+            coordinates,
+            photoIntervalMeters,
+            estimatedPhotos
           }
-          
+
           console.log('Generated mapArea:', newMapArea) // Debug log
           setMapArea(newMapArea)
         }
@@ -131,7 +141,47 @@ export default function FlightPlannerInterface() {
     return area / 4046.86 // Convert to acres
   }
 
-  const generateOptimizedFlightPath = (boundary: { lat: number; lng: number }[]): { lat: number; lng: number }[] => {
+  // Calculate distance between two lat/lng points in meters
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000 // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLng = (lng2 - lng1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }
+
+  // Generate camera trigger waypoints along a flight line
+  const generateCameraTriggerWaypoints = (
+    startLat: number, startLng: number,
+    endLat: number, endLng: number,
+    photoIntervalMeters: number
+  ): Waypoint[] => {
+    const waypoints: Waypoint[] = []
+    const totalDistance = calculateDistance(startLat, startLng, endLat, endLng)
+
+    if (totalDistance === 0) return waypoints
+
+    const numPhotos = Math.max(1, Math.floor(totalDistance / photoIntervalMeters))
+
+    for (let i = 0; i <= numPhotos; i++) {
+      const fraction = i / numPhotos
+      const lat = startLat + (endLat - startLat) * fraction
+      const lng = startLng + (endLng - startLng) * fraction
+
+      waypoints.push({
+        lat,
+        lng,
+        action: 'photo'
+      })
+    }
+
+    return waypoints
+  }
+
+  const generateOptimizedFlightPath = (boundary: { lat: number; lng: number }[]): { coordinates: Waypoint[], photoIntervalMeters: number, estimatedPhotos: number } => {
     // Find bounds
     const lats = boundary.map(coord => coord.lat)
     const lngs = boundary.map(coord => coord.lng)
@@ -142,37 +192,60 @@ export default function FlightPlannerInterface() {
 
     // Calculate optimal line spacing based on camera FOV and overlap
     const altitudeM = parseInt(altitude) || 30
-    const cameraFOV = 84 // degrees (typical for DJI drones)
+    const horizontalFOV = 84 // degrees (typical for DJI/Autel drones)
+    const verticalFOV = 55 // degrees (approximate for 4:3 sensor)
     const overlapPercent = parseInt(overlap) || 80
-    
-    // Calculate ground coverage width
-    const coverageWidth = 2 * altitudeM * Math.tan((cameraFOV / 2) * Math.PI / 180)
+
+    // Calculate ground coverage (side overlap - for line spacing)
+    const coverageWidth = 2 * altitudeM * Math.tan((horizontalFOV / 2) * Math.PI / 180)
     const lineSpacing = coverageWidth * (1 - overlapPercent / 100)
-    
-    // Convert to degrees (approximate)
+
+    // Calculate forward ground coverage (for photo interval)
+    const forwardCoverage = 2 * altitudeM * Math.tan((verticalFOV / 2) * Math.PI / 180)
+    const photoIntervalMeters = forwardCoverage * (1 - overlapPercent / 100)
+
+    // Convert line spacing to degrees (approximate)
     const lineSpacingDeg = lineSpacing / 111320 // meters to degrees
 
-    const flightPath: { lat: number; lng: number }[] = []
+    const flightPath: Waypoint[] = []
     let currentLat = south
     let lineNumber = 0
+    let totalPhotos = 0
 
-    // Generate lawnmower pattern
+    // Generate lawnmower pattern with camera trigger waypoints
     while (currentLat <= north) {
+      let lineStart: { lat: number; lng: number }
+      let lineEnd: { lat: number; lng: number }
+
       if (lineNumber % 2 === 0) {
         // Even lines: west to east
-        flightPath.push({ lat: currentLat, lng: west })
-        flightPath.push({ lat: currentLat, lng: east })
+        lineStart = { lat: currentLat, lng: west }
+        lineEnd = { lat: currentLat, lng: east }
       } else {
         // Odd lines: east to west
-        flightPath.push({ lat: currentLat, lng: east })
-        flightPath.push({ lat: currentLat, lng: west })
+        lineStart = { lat: currentLat, lng: east }
+        lineEnd = { lat: currentLat, lng: west }
       }
-      
+
+      // Generate camera trigger waypoints along this flight line
+      const lineWaypoints = generateCameraTriggerWaypoints(
+        lineStart.lat, lineStart.lng,
+        lineEnd.lat, lineEnd.lng,
+        photoIntervalMeters
+      )
+
+      flightPath.push(...lineWaypoints)
+      totalPhotos += lineWaypoints.length
+
       currentLat += lineSpacingDeg
       lineNumber++
     }
 
-    return flightPath
+    return {
+      coordinates: flightPath,
+      photoIntervalMeters,
+      estimatedPhotos: totalPhotos
+    }
   }
 
   useEffect(() => {
@@ -334,9 +407,12 @@ export default function FlightPlannerInterface() {
         overlap_percent: parseInt(overlap),
         waypoints: mapArea ? {
           type: 'LineString',
-          coordinates: mapArea.coordinates.map((coord: { lat: number; lng: number }) => [coord.lng, coord.lat])
+          coordinates: mapArea.coordinates.map((coord: Waypoint) => [coord.lng, coord.lat]),
+          actions: mapArea.coordinates.map((coord: Waypoint) => coord.action),
+          photoIntervalMeters: mapArea.photoIntervalMeters,
+          estimatedPhotos: mapArea.estimatedPhotos
         } : null,
-        estimated_duration_min: Math.round((mapArea?.coordinates.length || 0) * 0.5) || 15,
+        estimated_duration_min: Math.round((mapArea?.coordinates.length || 0) * 0.3) || 15,
         scheduled_for: scheduledDate || new Date().toISOString(),
       }
 
@@ -582,8 +658,19 @@ export default function FlightPlannerInterface() {
                     <div className="space-y-1 text-sm text-green-700">
                       <p>Area: {mapArea.area}</p>
                       <p>Waypoints: {mapArea.coordinates.length}</p>
-                      <p>Est. Duration: {Math.round(mapArea.coordinates.length * 0.5)} min</p>
+                      <p>Estimated Photos: {mapArea.estimatedPhotos || mapArea.coordinates.length}</p>
+                      {mapArea.photoIntervalMeters && (
+                        <p className="font-medium">Photo Interval: {mapArea.photoIntervalMeters.toFixed(1)}m</p>
+                      )}
+                      <p>Est. Duration: {Math.round(mapArea.coordinates.length * 0.3)} min</p>
                     </div>
+                    {mapArea.photoIntervalMeters && (
+                      <div className="mt-3 pt-3 border-t border-green-200">
+                        <p className="text-xs text-green-600">
+                          Export as Litchi CSV for Maven EVO - camera triggers included
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
